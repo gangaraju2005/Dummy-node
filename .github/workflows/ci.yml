@@ -33,3 +33,10 @@ jobs:
 
       - name: Run tests
         run: npm test
+
+      - name: Upload frontend files
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-ui
+          path: public/
+          retention-days: 30
