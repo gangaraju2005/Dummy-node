@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD
 
 on:
   push:
@@ -19,11 +19,14 @@ on:
       - '.github/workflows/ci.yml'
 
 jobs:
-  build:
+  # CI Job: Build and test the application
+  ci:
     runs-on: ubuntu-latest
+    name: Continuous Integration
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -42,3 +45,64 @@ jobs:
           name: frontend-ui
           path: public/
           retention-days: 30
+
+  # CD Job: Deploy to AWS EC2 after CI succeeds
+  deploy:
+    runs-on: ubuntu-latest
+    name: Continuous Deployment
+    # Only run this job if CI job succeeds and this is a push to main (not a PR)
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create SSH key file
+        # Create a private key file from the GitHub Secret
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Deploy to EC2
+        # SSH into EC2 instance and execute deployment commands
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
+          
+          # Navigate to application directory
+          cd ~/app || mkdir -p ~/app && cd ~/app
+          
+          # Pull latest code from GitHub
+          if [ -d .git ]; then
+            git pull origin main
+          else
+            git clone https://github.com/${{ github.repository }}.git .
+          fi
+          
+          # Install or update dependencies
+          npm install --production
+          
+          # Restart application with PM2
+          pm2 restart app || pm2 start app.js --name app
+          
+          # Save PM2 process list so it auto-starts on reboot
+          pm2 save
+          
+          # Verify deployment
+          pm2 status
+          
+          EOF
+
+      - name: Verify deployment
+        # Double-check that the application started successfully
+        run: |
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} "pm2 status"
+
+      - name: Cleanup SSH key
+        # Clean up sensitive files (always run, even if deployment fails)
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key
+
