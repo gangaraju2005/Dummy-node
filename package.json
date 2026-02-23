@@ -1,0 +1,16 @@
+{
+  "name": "express-static-app",
+  "version": "1.0.0",
+  "description": "A simple Express app serving static HTML UI",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "echo 'CI Trigger Successful'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
