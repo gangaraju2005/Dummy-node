@@ -69,7 +69,7 @@ jobs:
       - name: Deploy to EC2
         # SSH into EC2 instance and execute deployment commands
         run: |
-          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << 'EOF'
+          ssh -i ~/.ssh/deploy_key ${{ secrets.EC2_USERNAME }}@${{ secrets.EC2_HOST }} << EOF
           
           # Navigate to application directory
           cd ~/app || mkdir -p ~/app && cd ~/app
